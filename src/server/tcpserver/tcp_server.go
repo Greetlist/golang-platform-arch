@@ -1,18 +1,14 @@
 package tcpserver
 
 import (
-    _ "net"
-    _ "io"
-    _ "time"
-    _ "os"
     "strconv"
     "flag"
     "glog"
     "config"
-    "golang.org/x/sys/unix"
     "net"
     "context"
     "sync"
+    "golang.org/x/sys/unix"
 )
 
 func init() {
@@ -31,6 +27,7 @@ type TcpServer struct {
 }
 
 func (tcpServer *TcpServer) Init() error {
+    glog.Infoln("123")
     tcpServer.cl = config.ConfigLoader{ConfigType : "tcp"}
     if err := tcpServer.cl.Init(); err != nil {
         glog.Errorln("Init config is : %s.\n", err)
@@ -54,6 +51,7 @@ func (tcpServer *TcpServer) createWorker() {
     var listenFD int = tcpServer.newTCPListenSocket()
     var epfd int = tcpServer.createEpoll()
     if listenFD == -1 || epfd == -1 {
+        glog.Info("123")
         return
     }
     if err := tcpServer.addSocketToEpoll(epfd, listenFD, "rw"); err != nil {
@@ -89,34 +87,6 @@ func (tcpServer *TcpServer) newTCPListenSocket() int {
     return listenFD
 }
 
-func (tcpServer *TcpServer) createEpoll() int {
-    ep, err := unix.EpollCreate1(0)
-    if err != nil {
-        glog.Errorln("Bind fd error : %s", err)
-        return -1
-    }
-    return ep
-}
-
-func (tcpServer *TcpServer) addSocketToEpoll(epfd, fd int, eventType string) error {
-    event := &unix.EpollEvent{
-        Fd : int32(fd),
-    }
-    var commonEvent uint32 = unix.EPOLLET
-    switch eventType {
-        case "r":
-            event.Events = commonEvent | unix.EPOLLIN
-        case "w":
-            event.Events = commonEvent | unix.EPOLLOUT
-        case "rw":
-            event.Events = commonEvent | unix.EPOLLIN | unix.EPOLLOUT
-    }
-    return unix.EpollCtl(epfd, unix.EPOLL_CTL_ADD, fd, event)
-}
-
-func (tcpServer *TcpServer) deleteSocketFromEpoll(epfd, fd int) error {
-    return unix.EpollCtl(epfd, unix.EPOLL_CTL_DEL, fd, nil)
-}
 
 func (tcpServer *TcpServer) startServe(epfd, listenFD int) {
     //record this routine connection
