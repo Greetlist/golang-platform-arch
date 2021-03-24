@@ -9,6 +9,9 @@ import (
     "context"
     "sync"
     "golang.org/x/sys/unix"
+    "os/signal"
+    "os"
+    "syscall"
 )
 
 func init() {
@@ -27,7 +30,6 @@ type TcpServer struct {
 }
 
 func (tcpServer *TcpServer) Init() error {
-    glog.Infoln("123")
     tcpServer.cl = config.ConfigLoader{ConfigType : "tcp"}
     if err := tcpServer.cl.Init(); err != nil {
         glog.Errorln("Init config is : %s.\n", err)
@@ -44,7 +46,15 @@ func (tcpServer *TcpServer) Run() {
         tcpServer.wg.Add(1)
         go tcpServer.createWorker()
     }
-    tcpServer.wg.Wait()
+    ch := make(chan os.Signal, 1)
+    signal.Notify(ch, syscall.SIGTERM, syscall.SIGINT)
+    for {
+        select {
+            case <-ch:
+                tcpServer.Close()
+                return
+        }
+    }
 }
 
 func (tcpServer *TcpServer) createWorker() {
@@ -86,7 +96,6 @@ func (tcpServer *TcpServer) newTCPListenSocket() int {
     }
     return listenFD
 }
-
 
 func (tcpServer *TcpServer) startServe(epfd, listenFD int) {
     //record this routine connection
@@ -138,4 +147,5 @@ func (tcpServer *TcpServer) startServe(epfd, listenFD int) {
 
 func (tcpServer *TcpServer) Close() {
     tcpServer.cancelFunc()
+    tcpServer.wg.Wait()
 }
