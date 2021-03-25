@@ -33,3 +33,16 @@ func (tcpServer *TcpServer) addSocketToEpoll(epfd, fd int, eventType string) err
 func (tcpServer *TcpServer) deleteSocketFromEpoll(epfd, fd int) error {
     return unix.EpollCtl(epfd, unix.EPOLL_CTL_DEL, fd, nil)
 }
+
+func (tcpServer *TcpServer) mainEpollWait(epfd int, events []unix.EpollEvent, sec int) int {
+    num, err := unix.EpollWait(epfd, events, sec * 1000)
+    if err != nil {
+        if num < 0 && err == unix.EINTR {
+            return 0
+        } else {
+            glog.Errorln("Epoll Wait error : %s", err)
+	    return -1
+        }
+    }
+    return num
+}
